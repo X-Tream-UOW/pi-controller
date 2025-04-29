@@ -37,11 +37,30 @@ void configure_spi(int fd) {
     }
 }
 
+
+ssize_t read_spi_buffer(int fd, uint16_t *buffer, size_t len) {  /* TODO : improve indian-ness coherence & ensure cs pin management*/
+    struct spi_ioc_transfer transfer = {
+        .tx_buf = 0,
+        .rx_buf = (unsigned long) buffer,
+        .len = len,
+        .delay_usecs = 0,
+        .speed_hz = 0, // Use default
+        .bits_per_word = 0 // Use default
+    };
+
+    const int ret = ioctl(fd, SPI_IOC_MESSAGE(1), &transfer);
+    if (ret < 0) {
+        perror("SPI transfer error");
+        return -1;
+    }
+
+    return ret;
+}
+
 int main() {
     setlocale(LC_NUMERIC, "");
 
-    const int fd = open(SPI_DEVICE, O_RDWR); // SPI device file descriptor
-
+    const int fd = open(SPI_DEVICE, O_RDWR);
     if (fd < 0) {
         perror("Failed to open SPI device");
         return 1;
@@ -55,21 +74,13 @@ int main() {
     clock_gettime(CLOCK_MONOTONIC, &t_start);
 
     const double display_interval_ms = 2000.0;
-
     double total_samples = 0;
     double total_time_ms = 0;
 
     while (1) {
-        const ssize_t bytes_read = read(fd, buffer, sizeof(buffer)); // waits for Pico to send data
-
+        ssize_t bytes_read = read_spi_buffer(fd, buffer, sizeof(buffer));
         if (bytes_read < 0) {
-            perror("SPI read error");
             break;
-        }
-
-        if (bytes_read == 0) {
-            printf("No data\n");
-            continue;
         }
 
         if (bytes_read != sizeof(buffer)) {
@@ -78,7 +89,6 @@ int main() {
         }
 
         const double samples = bytes_read / sizeof(uint16_t);
-
         total_samples += samples;
 
         clock_gettime(CLOCK_MONOTONIC, &t_now);
