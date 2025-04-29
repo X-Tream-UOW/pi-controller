@@ -33,6 +33,7 @@ void configure_spi(int fd) {
 
 int main() {
     const int fd = open(SPI_DEVICE, O_RDWR); // SPI device file descriptor
+
     if (fd < 0) {
         perror("Failed to open SPI device");
         return 1;
@@ -42,8 +43,13 @@ int main() {
 
     printf("SPI slave ready, waiting...\n");
 
-    struct timespec t_start, t_end;
+    struct timespec t_start, t_now;
     clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+    const double display_interval_ms = 2000.0;
+
+    double total_samples = 0;
+    double total_time_ms = 0;
 
     while (1) {
         const ssize_t bytes_read = read(fd, buffer, sizeof(buffer)); // waits for Pico to send data
@@ -58,15 +64,23 @@ int main() {
             continue;
         }
 
-        clock_gettime(CLOCK_MONOTONIC, &t_end);
-        const double elapsed_time = timespec_diff_ms(&t_start, &t_end);
-        t_start = t_end;
-
-        const double seconds = elapsed_time / 1000.0;
         const double samples = bytes_read / sizeof(uint16_t);
-        const double frequency = samples / seconds;
 
-        printf("Sampling frequency: %.2f samples/s\n", frequency);
+        total_samples += samples;
+
+        clock_gettime(CLOCK_MONOTONIC, &t_now);
+        total_time_ms = timespec_diff_ms(&t_start, &t_now);
+
+        if (total_time_ms >= display_interval_ms) {
+            const double seconds = total_time_ms / 1000.0;
+            const double avg_frequency = total_samples / seconds;
+
+            printf("Sampling frequency: %.2f samples/sec\n", avg_frequency);
+
+            clock_gettime(CLOCK_MONOTONIC, &t_start);
+            total_samples = 0;
+            total_time_ms = 0;
+        }
     }
 
     close(fd);
