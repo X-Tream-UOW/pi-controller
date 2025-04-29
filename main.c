@@ -21,6 +21,7 @@ double timespec_diff_ms(const struct timespec *start, const struct timespec *end
 void configure_spi(int fd) {
     uint8_t mode = SPI_MODE_0;
     uint8_t bits_per_word = 16;
+    uint32_t speed = 1 * 1000 * 1000;
 
     if (ioctl(fd, SPI_IOC_WR_MODE, &mode) < 0) {
         perror("Failed to set SPI mode");
@@ -28,6 +29,10 @@ void configure_spi(int fd) {
     }
     if (ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &bits_per_word) < 0) {
         perror("Failed to set bits per word");
+        exit(EXIT_FAILURE);
+    }
+    if (ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) < 0) {
+        perror("Failed to set SPI speed");
         exit(EXIT_FAILURE);
     }
 }
@@ -64,6 +69,11 @@ int main() {
 
         if (bytes_read == 0) {
             printf("No data\n");
+            continue;
+        }
+
+        if (bytes_read != sizeof(buffer)) {
+            fprintf(stderr, "Warning: partial read (%zd bytes)\n", bytes_read);
             continue;
         }
 
