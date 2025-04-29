@@ -6,6 +6,7 @@
 #include <linux/spi/spidev.h>
 #include <sys/ioctl.h>
 #include <time.h>
+#include <locale.h>
 
 #define SPI_DEVICE "/dev/spidev0.0"
 #define BUFFER_SIZE 16384
@@ -32,6 +33,8 @@ void configure_spi(int fd) {
 }
 
 int main() {
+    setlocale(LC_NUMERIC, "");
+
     const int fd = open(SPI_DEVICE, O_RDWR); // SPI device file descriptor
 
     if (fd < 0) {
@@ -75,7 +78,7 @@ int main() {
             const double seconds = total_time_ms / 1000.0;
             const double avg_frequency = total_samples / seconds;
 
-            printf("Sampling frequency: %.2f samples/sec\n", avg_frequency);
+            printf("Sampling frequency: %'.2f samples/sec\n", avg_frequency);
 
             clock_gettime(CLOCK_MONOTONIC, &t_start);
             total_samples = 0;
