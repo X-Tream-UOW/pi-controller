@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
 
