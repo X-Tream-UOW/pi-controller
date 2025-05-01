@@ -11,35 +11,35 @@
 int main() {
     int fd = open(SPI_DEVICE, O_RDWR);
     if (fd < 0) {
-        perror("Failed to open SPI device");
+        perror("open");
         return 1;
     }
 
     uint8_t mode = SPI_MODE_0;
     uint8_t bits = 8;
-    uint32_t speed = 1000000;
+    uint32_t speed = 500000;
 
     ioctl(fd, SPI_IOC_WR_MODE, &mode);
     ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
     ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
 
-    uint8_t tx = 0xAB;
-    uint8_t rx = 0;
+    uint8_t tx = 0x00;
+    uint8_t rx;
 
-    struct spi_ioc_transfer tr = {
-        .tx_buf = (unsigned long)&tx,
-        .rx_buf = (unsigned long)&rx,
-        .len = 1,
-        .speed_hz = speed,
-        .bits_per_word = bits,
-    };
+    for (int i = 0; i < 10; ++i) {
+        struct spi_ioc_transfer tr = {
+            .tx_buf = (unsigned long)&tx,
+            .rx_buf = (unsigned long)&rx,
+            .len = 1,
+            .speed_hz = speed,
+            .bits_per_word = bits,
+        };
 
-    if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 0) {
-        perror("SPI transfer failed");
-        return 1;
+        ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
+        printf("Received: %d\n", rx);
+        usleep(500000);  // wait 0.5 sec
     }
 
-    printf("Sent: 0x%02X, Received: 0x%02X\n", tx, rx);
     close(fd);
     return 0;
 }
