@@ -1,43 +1,40 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <fcntl.h>
-#include <stdint.h>
 #include <unistd.h>
-#include <linux/spi/spidev.h>
 #include <sys/ioctl.h>
-
-#define SPI_DEVICE "/dev/spidev0.0"
+#include <linux/spi/spidev.h>
 
 int main() {
-    int fd = open(SPI_DEVICE, O_RDWR);
+    int fd = open("/dev/spidev0.0", O_RDWR);
     if (fd < 0) {
-        perror("open");
+        printf("Failed to open SPI device\n");
         return 1;
     }
 
     uint8_t mode = SPI_MODE_0;
+    uint32_t speed = 1000000; // 1 MHz
     uint8_t bits = 8;
-    uint32_t speed = 500000;
 
     ioctl(fd, SPI_IOC_WR_MODE, &mode);
     ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
     ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
 
-    uint8_t tx = 0x00;
+    uint8_t tx = 0x00; // Dummy byte
     uint8_t rx;
 
-    for (int i = 0; i < 10; ++i) {
+    while (1) {
         struct spi_ioc_transfer tr = {
             .tx_buf = (unsigned long)&tx,
             .rx_buf = (unsigned long)&rx,
             .len = 1,
+            .delay_usecs = 0,
             .speed_hz = speed,
             .bits_per_word = bits,
         };
 
         ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
         printf("Received: %d\n", rx);
-        usleep(500000);  // wait 0.5 sec
+        usleep(100000); // 100ms delay
     }
 
     close(fd);
