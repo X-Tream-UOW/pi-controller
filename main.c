@@ -28,41 +28,54 @@ int main() {
     struct gpiod_chip *chip = gpiod_chip_open(CHIP);
     if (!chip) error_exit("gpiod_chip_open");
 
-    struct gpiod_line *convst = gpiod_chip_get_line(chip, CONVST_PIN);
-    struct gpiod_line *cs     = gpiod_chip_get_line(chip, CS_PIN);
-    struct gpiod_line *rd     = gpiod_chip_get_line(chip, RD_PIN);
-    struct gpiod_line *busy   = gpiod_chip_get_line(chip, BUSY_PIN);
+    struct gpiod_line_bulk ctrl_lines;
+    struct gpiod_line *ctrl_array[3];
+    ctrl_array[0] = gpiod_chip_get_line(chip, CS_PIN);
+    ctrl_array[1] = gpiod_chip_get_line(chip, CONVST_PIN);
+    ctrl_array[2] = gpiod_chip_get_line(chip, RD_PIN);
 
-    if (gpiod_line_request_output(convst, "reader", 1) ||
-        gpiod_line_request_output(cs, "reader", 1) ||
-        gpiod_line_request_output(rd, "reader", 1) ||
-        gpiod_line_request_input(busy, "reader")) {
+    gpiod_line_bulk_init(&ctrl_lines);
+    gpiod_line_bulk_add_array(&ctrl_lines, ctrl_array, 3);
+
+    if (gpiod_line_request_bulk_output(&ctrl_lines, "reader", (int[]){1, 1, 1}))
         error_exit("request control lines");
-    }
+
+    struct gpiod_line *busy = gpiod_chip_get_line(chip, BUSY_PIN);
+    if (gpiod_line_request_falling_edge_events(busy, "reader"))
+        error_exit("request BUSY events");
 
     struct gpiod_line_bulk db_lines;
     gpiod_chip_get_lines(chip, db_pins, DB_COUNT, &db_lines);
     if (gpiod_line_request_bulk_input(&db_lines, "reader"))
         error_exit("request DB lines");
 
-    printf("Starting acquisition...\n");
+    printf("Starting optimized acquisition with event-based BUSY...\n");
 
     struct timespec start_time, now;
     clock_gettime(CLOCK_MONOTONIC, &start_time);
     int sample_count = 0;
 
     while (1) {
-        gpiod_line_set_value(cs, 0);
-        gpiod_line_set_value(convst, 0);
-        gpiod_line_set_value(convst, 1);
+        gpiod_line_set_value(ctrl_array[0], 0); // CS = 0
+        gpiod_line_set_value(ctrl_array[1], 0); // CONVST = 0
+        gpiod_line_set_value(ctrl_array[1], 1); // CONVST = 1
 
-        while (gpiod_line_get_value(busy) == 1);
+        struct timespec timeout = {1, 0};
+        if (gpiod_line_event_wait(busy, &timeout) <= 0)
+            continue;
 
-        gpiod_line_set_value(rd, 0);
+        struct gpiod_line_event ev;
+        gpiod_line_event_read(busy, &ev);
+
+        gpiod_line_set_value(ctrl_array[2], 0); // RD = 0
         int values[DB_COUNT];
         gpiod_line_get_value_bulk(&db_lines, values);
-        gpiod_line_set_value(rd, 1);
-        gpiod_line_set_value(cs, 1);
+        gpiod_line_set_value(ctrl_array[2], 1); // RD = 1
+        gpiod_line_set_value(ctrl_array[0], 1); // CS = 1
+
+        uint16_t sample = 0;
+        for (int i = 0; i < DB_COUNT; ++i)
+            sample |= (values[i] << i);
 
         sample_count++;
 
