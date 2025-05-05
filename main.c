@@ -8,10 +8,11 @@
 
 #define DB_COUNT 16
 
-const unsigned int db_pins[DB_COUNT] = {
+unsigned int db_pins[DB_COUNT] = {
     5, 6, 7, 8, 9, 10, 11, 12,
     13, 14, 15, 16, 17, 18, 19, 20
 };
+
 const unsigned int CONVST_PIN = 22;
 const unsigned int CS_PIN     = 23;
 const unsigned int RD_PIN     = 24;
@@ -66,7 +67,7 @@ int main() {
         }
 
         printf("Sample: %u (0x%04X)\n", sample, sample);
-        usleep(10000);
+        usleep(1 * 1000 * 1000);
     }
 
     gpiod_chip_close(chip);
