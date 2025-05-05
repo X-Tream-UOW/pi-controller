@@ -69,7 +69,10 @@ int main() {
 
         gpiod_line_set_value(ctrl_array[2], 0); // RD = 0
         int values[DB_COUNT];
-        gpiod_line_get_value_bulk(&db_lines, values);
+        for (int i = 0; i < 3; ++i) {
+            gpiod_line_bulk_add(&ctrl_lines, ctrl_array[i]);
+        }
+
         gpiod_line_set_value(ctrl_array[2], 1); // RD = 1
         gpiod_line_set_value(ctrl_array[0], 1); // CS = 1
 
