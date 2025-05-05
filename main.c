@@ -6,11 +6,9 @@
 
 #define CHIP "/dev/gpiochip0" // gpiodetect to chose the right one, on rpi5 it's the 0
 
-#define DB_COUNT 16
+#define DB_COUNT 1
 
-unsigned int db_pins[DB_COUNT] = {
-    5
-};
+unsigned int db_pins[DB_COUNT] = { 5 };
 
 const unsigned int CONVST_PIN = 22;
 const unsigned int CS_PIN     = 23;
