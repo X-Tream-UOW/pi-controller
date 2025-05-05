@@ -35,7 +35,10 @@ int main() {
     ctrl_array[2] = gpiod_chip_get_line(chip, RD_PIN);
 
     gpiod_line_bulk_init(&ctrl_lines);
-    gpiod_line_bulk_add_array(&ctrl_lines, ctrl_array, 3);
+    for (int i = 0; i < 3; ++i) {
+        gpiod_line_bulk_add(&ctrl_lines, ctrl_array[i]);
+    }
+
 
     if (gpiod_line_request_bulk_output(&ctrl_lines, "reader", (int[]){1, 1, 1}))
         error_exit("request control lines");
@@ -69,10 +72,7 @@ int main() {
 
         gpiod_line_set_value(ctrl_array[2], 0); // RD = 0
         int values[DB_COUNT];
-        for (int i = 0; i < 3; ++i) {
-            gpiod_line_bulk_add(&ctrl_lines, ctrl_array[i]);
-        }
-
+        gpiod_line_get_value_bulk(&db_lines, values);
         gpiod_line_set_value(ctrl_array[2], 1); // RD = 1
         gpiod_line_set_value(ctrl_array[0], 1); // CS = 1
 
