@@ -1,43 +1,74 @@
+#include <gpiod.h>
 #include <stdio.h>
-#include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
-#include <sys/ioctl.h>
-#include <linux/spi/spidev.h>
+
+#define CHIP "/dev/gpiochip0" // gpiodetect to chose the right one, on rpi5 it's the 0
+
+#define DB_COUNT 16
+
+const unsigned int db_pins[DB_COUNT] = {
+    5, 6, 7, 8, 9, 10, 11, 12,
+    13, 14, 15, 16, 17, 18, 19, 20
+};
+const unsigned int CONVST_PIN = 22;
+const unsigned int CS_PIN     = 23;
+const unsigned int RD_PIN     = 24;
+const unsigned int BUSY_PIN   = 21;
+
+void error_exit(const char *msg) {
+    perror(msg);
+    exit(1);
+}
 
 int main() {
-    int fd = open("/dev/spidev0.0", O_RDWR);
-    if (fd < 0) {
-        printf("Failed to open SPI device\n");
-        return 1;
+    struct gpiod_chip *chip = gpiod_chip_open(CHIP);
+    if (!chip) error_exit("gpiod_chip_open");
+
+    struct gpiod_line *convst = gpiod_chip_get_line(chip, CONVST_PIN);
+    struct gpiod_line *cs     = gpiod_chip_get_line(chip, CS_PIN);
+    struct gpiod_line *rd     = gpiod_chip_get_line(chip, RD_PIN);
+    struct gpiod_line *busy   = gpiod_chip_get_line(chip, BUSY_PIN);
+
+    if (gpiod_line_request_output(convst, "reader", 1) ||
+        gpiod_line_request_output(cs, "reader", 1) ||
+        gpiod_line_request_output(rd, "reader", 1) ||
+        gpiod_line_request_input(busy, "reader")) {
+        error_exit("request control lines");
     }
 
-    uint8_t mode = SPI_MODE_0;
-    uint32_t speed = 1000000; // 1 MHz
-    uint8_t bits = 8;
+    struct gpiod_line_bulk db_lines;
+    gpiod_chip_get_lines(chip, db_pins, DB_COUNT, &db_lines);
+    if (gpiod_line_request_bulk_input(&db_lines, "reader"))
+        error_exit("request DB lines");
 
-    ioctl(fd, SPI_IOC_WR_MODE, &mode);
-    ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
-    ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-
-    uint8_t tx = 0x00; // Dummy byte
-    uint8_t rx;
+    printf("Starting acquisition...\n");
 
     while (1) {
-        struct spi_ioc_transfer tr = {
-            .tx_buf = (unsigned long)&tx,
-            .rx_buf = (unsigned long)&rx,
-            .len = 1,
-            .delay_usecs = 0,
-            .speed_hz = speed,
-            .bits_per_word = bits,
-        };
+        gpiod_line_set_value(cs, 0);
+        gpiod_line_set_value(convst, 0);
+        usleep(1);
+        gpiod_line_set_value(convst, 1);
 
-        ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
-        printf("Received: %d\n", rx);
-        usleep(100000); // 100ms delay
+        while (gpiod_line_get_value(busy) == 1);   // Wait for BUSY to go LOW
+
+        gpiod_line_set_value(rd, 0);
+        usleep(1);
+        int values[DB_COUNT];
+        gpiod_line_get_value_bulk(&db_lines, values);
+        gpiod_line_set_value(rd, 1);
+        gpiod_line_set_value(cs, 1);
+
+        uint16_t sample = 0;
+        for (int i = 0; i < DB_COUNT; ++i) {   // Assembling 16-bit word
+            sample |= (values[i] << i);
+        }
+
+        printf("Sample: %u (0x%04X)\n", sample, sample);
+        usleep(10000);
     }
 
-    close(fd);
+    gpiod_chip_close(chip);
     return 0;
 }
