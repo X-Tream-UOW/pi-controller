@@ -45,12 +45,12 @@ int main() {
         }
 
         printf("Received: ");
-        for (int i = 0; i < WORDS; i++) {
-            uint16_t word = (rx[2*i] << 8) | rx[2*i+1];  // Big endian
-            printf("0x%04X ", word);
+        for (int i = 0; i < WORDS * 2; i++) {
+            printf("0x%02X ", rx[i]);
         }
         printf("\n");
-//        usleep(1 * 1000 * 1000);
+
+        sleep(1);
     }
 
     close(spi_fd);
