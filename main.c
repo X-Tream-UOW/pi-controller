@@ -50,7 +50,7 @@ int main() {
             printf("0x%04X ", word);
         }
         printf("\n");
-        usleep(1 * 1000 * 1000);
+//        usleep(1 * 1000 * 1000);
     }
 
     close(spi_fd);
