@@ -1,96 +1,58 @@
-#include <gpiod.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdint.h>
-#include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <linux/spi/spidev.h>
+#include <sys/ioctl.h>
+#include <string.h>
 
-#define CHIP "/dev/gpiochip0"
-
-#define DB_COUNT 1
-unsigned int db_pins[DB_COUNT] = { 5 };
-
-const unsigned int CONVST_PIN = 22;
-const unsigned int CS_PIN     = 23;
-const unsigned int RD_PIN     = 24;
-const unsigned int BUSY_PIN   = 21;
-
-void error_exit(const char *msg) {
-    perror(msg);
-    exit(1);
-}
-
-double timespec_diff_sec(const struct timespec *start, const struct timespec *end) {
-    return (end->tv_sec - start->tv_sec) + (end->tv_nsec - start->tv_nsec) / 1e9;
-}
+#define DEVICE "/dev/spidev0.0"
+#define SPEED_HZ 1000000
+#define WORDS 8  // nb of 16-bit words to read each loop (BUFFER_SIZE on pico)
 
 int main() {
-    struct gpiod_chip *chip = gpiod_chip_open(CHIP);
-    if (!chip) error_exit("gpiod_chip_open");
-
-    struct gpiod_line_bulk ctrl_lines;
-    struct gpiod_line *ctrl_array[3];
-    ctrl_array[0] = gpiod_chip_get_line(chip, CS_PIN);
-    ctrl_array[1] = gpiod_chip_get_line(chip, CONVST_PIN);
-    ctrl_array[2] = gpiod_chip_get_line(chip, RD_PIN);
-
-    gpiod_line_bulk_init(&ctrl_lines);
-    for (int i = 0; i < 3; ++i) {
-        gpiod_line_bulk_add(&ctrl_lines, ctrl_array[i]);
+    int spi_fd = open(DEVICE, O_RDWR);
+    if (spi_fd < 0) {
+        perror("Failed to open SPI device");
+        return 1;
     }
 
+    uint8_t mode = SPI_MODE_0;
+    uint8_t bits_per_word = 8;
 
-    if (gpiod_line_request_bulk_output(&ctrl_lines, "reader", (int[]){1, 1, 1}))
-        error_exit("request control lines");
+    ioctl(spi_fd, SPI_IOC_WR_MODE, &mode);
+    ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits_per_word);
+    ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &(uint32_t){SPEED_HZ});
 
-    struct gpiod_line *busy = gpiod_chip_get_line(chip, BUSY_PIN);
-    if (gpiod_line_request_falling_edge_events(busy, "reader"))
-        error_exit("request BUSY events");
-
-    struct gpiod_line_bulk db_lines;
-    gpiod_chip_get_lines(chip, db_pins, DB_COUNT, &db_lines);
-    if (gpiod_line_request_bulk_input(&db_lines, "reader"))
-        error_exit("request DB lines");
-
-    printf("Starting optimized acquisition with event-based BUSY...\n");
-
-    struct timespec start_time, now;
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
-    int sample_count = 0;
+    uint8_t tx[WORDS * 2] = {0};
+    uint8_t rx[WORDS * 2];
 
     while (1) {
-        gpiod_line_set_value(ctrl_array[0], 0); // CS = 0
-        gpiod_line_set_value(ctrl_array[1], 0); // CONVST = 0
-        gpiod_line_set_value(ctrl_array[1], 1); // CONVST = 1
+        struct spi_ioc_transfer transfer = {
+            .tx_buf = (unsigned long)tx,
+            .rx_buf = (unsigned long)rx,
+            .len = sizeof(tx),
+            .delay_usecs = 0,
+            .speed_hz = SPEED_HZ,
+            .bits_per_word = bits_per_word,
+        };
 
-        struct timespec timeout = {1, 0};
-        if (gpiod_line_event_wait(busy, &timeout) <= 0)
-            continue;
-
-        struct gpiod_line_event ev;
-        gpiod_line_event_read(busy, &ev);
-
-        gpiod_line_set_value(ctrl_array[2], 0); // RD = 0
-        int values[DB_COUNT];
-        gpiod_line_get_value_bulk(&db_lines, values);
-        gpiod_line_set_value(ctrl_array[2], 1); // RD = 1
-        gpiod_line_set_value(ctrl_array[0], 1); // CS = 1
-
-        uint16_t sample = 0;
-        for (int i = 0; i < DB_COUNT; ++i)
-            sample |= (values[i] << i);
-
-        sample_count++;
-
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        double elapsed = timespec_diff_sec(&start_time, &now);
-        if (elapsed >= 1.0) {
-            printf("Sampling rate: %.0f samples/sec\n", sample_count / elapsed);
-            sample_count = 0;
-            start_time = now;
+        int ret = ioctl(spi_fd, SPI_IOC_MESSAGE(1), &transfer);
+        if (ret < 0) {
+            perror("SPI transfer failed");
+            break;
         }
+
+        printf("Received: ");
+        for (int i = 0; i < WORDS; i++) {
+            uint16_t word = (rx[2*i] << 8) | rx[2*i+1];  // Big endian
+            printf("0x%04X ", word);
+        }
+        printf("\n");
+        usleep(1 * 1000 * 1000);
     }
 
-    gpiod_chip_close(chip);
+    close(spi_fd);
     return 0;
 }
