@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 #define SPI_DEV "/dev/spidev0.0"
-#define SPEED 1000000
+#define SPEED 10000
 #define MODE SPI_MODE_0
 
 int main() {
