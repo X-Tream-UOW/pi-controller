@@ -4,10 +4,11 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
+#include <stdbool.h>
 
-#define SPI_DEV "/dev/spidev0.0"  // SPI bus 0, chip select 0
-#define SPEED 1000000             // 1 MHz
-#define MODE SPI_MODE_0           // CPOL=0, CPHA=0
+#define SPI_DEV "/dev/spidev0.0"
+#define SPEED 1000000
+#define MODE SPI_MODE_0
 
 int main() {
     int fd = open(SPI_DEV, O_RDWR);
@@ -16,12 +17,15 @@ int main() {
         return 1;
     }
 
-    if (ioctl(fd, SPI_IOC_WR_MODE, &MODE) == -1) {
+    uint8_t mode = MODE;
+    uint32_t speed = SPEED;
+
+    if (ioctl(fd, SPI_IOC_WR_MODE, &mode) == -1) {
         perror("Can't set SPI mode");
         return 1;
     }
 
-    if (ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &SPEED) == -1) {
+    if (ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) == -1) {
         perror("Can't set max speed");
         return 1;
     }
