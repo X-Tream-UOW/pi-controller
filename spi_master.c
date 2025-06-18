@@ -49,7 +49,6 @@ int main() {
         }
 
         printf("Sent: 0x%02X | Received: 0x%02X\n", tx, rx);
-        sleep(1);
     }
 
     close(fd);
