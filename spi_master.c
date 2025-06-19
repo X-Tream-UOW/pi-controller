@@ -78,19 +78,10 @@ int main() {
         close(fd);
         cleanup_gpio();
         return 1;
-    }
+        }
 
-    uint8_t tx_buf[BUFFER_SIZE] = {0};  // All zeros (dummy transmit)
+    uint8_t tx_buf[BUFFER_SIZE] = {0};  // dummy transmit buffer
     uint8_t rx_buf[BUFFER_SIZE];
-
-    struct spi_ioc_transfer tr = {
-        .tx_buf = (unsigned long)tx_buf,
-        .rx_buf = (unsigned long)rx_buf,
-        .len = BUFFER_SIZE,
-        .delay_usecs = 0,
-        .speed_hz = speed,
-        .bits_per_word = bits,
-    };
 
     while (1) {
         printf("Waiting for READY (GPIO %d)...\n", READY_GPIO);
@@ -98,9 +89,23 @@ int main() {
 
         printf("READY detected. Starting SPI transfer of %d bytes...\n", BUFFER_SIZE);
 
-        if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
-            perror("SPI transfer failed");
-            break;
+        // Transfer in chunks
+        for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
+            int chunk_len = (BUFFER_SIZE - offset > CHUNK_SIZE) ? CHUNK_SIZE : (BUFFER_SIZE - offset);
+
+            struct spi_ioc_transfer tr_chunk = {
+                .tx_buf = (unsigned long)(tx_buf + offset),
+                .rx_buf = (unsigned long)(rx_buf + offset),
+                .len = chunk_len,
+                .delay_usecs = 0,
+                .speed_hz = speed,
+                .bits_per_word = bits,
+            };
+
+            if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr_chunk) < 1) {
+                perror("SPI chunk transfer failed");
+                break;
+            }
         }
 
         printf("Transfer complete. First 10 samples:\n");
@@ -116,3 +121,4 @@ int main() {
     cleanup_gpio();
     return 0;
 }
+
