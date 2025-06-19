@@ -15,24 +15,33 @@
 
 #define GPIO_CHIP_NAME "gpiochip4"
 #define READY_GPIO 5
+#define ACK_GPIO   6
 
 #define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
 
 struct gpiod_chip *chip;
 struct gpiod_line *ready_line;
+struct gpiod_line *ack_line;
 
-int init_ready_gpio() {
+int init_gpio() {
     chip = gpiod_chip_open_by_name(GPIO_CHIP_NAME);
     if (!chip) return -1;
 
     ready_line = gpiod_chip_get_line(chip, READY_GPIO);
-    if (!ready_line) {
+    ack_line   = gpiod_chip_get_line(chip, ACK_GPIO);
+
+    if (!ready_line || !ack_line) {
         gpiod_chip_close(chip);
         return -1;
     }
 
-    if (gpiod_line_request_input(ready_line, "spi_ready") < 0) {
+    if (gpiod_line_request_input(ready_line, "ready_in") < 0) {
+        gpiod_chip_close(chip);
+        return -1;
+    }
+
+    if (gpiod_line_request_output(ack_line, "ack_out", 0) < 0) {
         gpiod_chip_close(chip);
         return -1;
     }
@@ -40,19 +49,26 @@ int init_ready_gpio() {
     return 0;
 }
 
-void wait_for_ready_high() {
+void cleanup_gpio() {
+    if (ack_line) gpiod_line_release(ack_line);
+    if (ready_line) gpiod_line_release(ready_line);
+    if (chip) gpiod_chip_close(chip);
+}
+
+void wait_for_ready() {
     while (gpiod_line_get_value(ready_line) == 0) {
         usleep(10);
     }
 }
 
-void cleanup_gpio() {
-    if (ready_line) gpiod_line_release(ready_line);
-    if (chip) gpiod_chip_close(chip);
+void send_ack_pulse() {
+    gpiod_line_set_value(ack_line, 1);
+    usleep(10);  // 10–50 µs
+    gpiod_line_set_value(ack_line, 0);
 }
 
 int main() {
-    if (init_ready_gpio() != 0) return 1;
+    if (init_gpio() != 0) return 1;
 
     int fd = open(SPI_DEV, O_RDWR);
     if (fd < 0) {
@@ -76,13 +92,13 @@ int main() {
     uint8_t rx_buf[BUFFER_SIZE];
 
     while (1) {
-        getchar();  // Wait for user input before next transfer
-        wait_for_ready_high();
+        getchar(); // wait for user to press a key
+        wait_for_ready();
 
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
             int chunk_len = (BUFFER_SIZE - offset > CHUNK_SIZE) ? CHUNK_SIZE : (BUFFER_SIZE - offset);
 
-            struct spi_ioc_transfer tr_chunk = {
+            struct spi_ioc_transfer tr = {
                 .tx_buf = (unsigned long)(tx_buf + offset),
                 .rx_buf = (unsigned long)(rx_buf + offset),
                 .len = chunk_len,
@@ -91,10 +107,13 @@ int main() {
                 .bits_per_word = bits,
             };
 
-            if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr_chunk) < 1) {
+            if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
+                perror("SPI transfer failed");
                 break;
             }
         }
+
+        send_ack_pulse();
     }
 
     close(fd);
