@@ -61,10 +61,10 @@ void wait_for_ready() {
     }
 }
 
-void send_ack_pulse() {
+void send_ack() {
     gpiod_line_set_value(ack_line, 1);
-    usleep(10);  // 10–50 µs
-    gpiod_line_set_value(ack_line, 0);
+    usleep(10);
+    gpiod_line_release(ack_line);
 }
 
 int main() {
@@ -113,7 +113,7 @@ int main() {
             }
         }
 
-        send_ack_pulse();
+        send_ack();
     }
 
     close(fd);
