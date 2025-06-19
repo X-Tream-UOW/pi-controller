@@ -67,7 +67,13 @@ void send_ack_pulse() {
     gpiod_line_set_value(ack_line, 0);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    int manual_mode = 0;
+
+    if (argc > 1 && strcmp(argv[1], "-m") == 0) {
+        manual_mode = 1;
+    }
+
     if (init_gpio() != 0) return 1;
 
     int fd = open(SPI_DEV, O_RDWR);
@@ -92,7 +98,7 @@ int main() {
     uint8_t rx_buf[BUFFER_SIZE];
 
     while (1) {
-        getchar(); // wait for user to press a key
+        if (manual_mode) getchar();
         wait_for_ready();
 
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
