@@ -11,6 +11,7 @@
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 2000000  // 2 MHz
 #define BITS_PER_WORD 8
+#define CHUNK_SIZE 4096
 
 #define GPIO_CHIP_NAME "gpiochip4"  // For Raspberry Pi 5: GPIO 0–31 = gpiochip4
 #define READY_GPIO 5                // BCM GPIO 5 → line 5 in gpiochip4
