@@ -9,7 +9,7 @@
 #include <gpiod.h>
 
 #define SPI_DEV "/dev/spidev0.0"
-#define SPI_SPEED 40000000
+#define SPI_SPEED 28000000
 #define BITS_PER_WORD 8
 #define CHUNK_SIZE 4096
 
