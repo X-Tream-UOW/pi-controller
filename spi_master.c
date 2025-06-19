@@ -63,6 +63,8 @@ void wait_for_ready() {
 
 void send_ack() {
     gpiod_line_set_value(ack_line, 1);
+    usleep(10);
+    gpiod_line_release(ack_line);
 }
 
 int main() {
