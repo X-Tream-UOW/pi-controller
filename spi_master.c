@@ -10,7 +10,7 @@
 
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 20000000
-#define BITS_PER_WORD 8
+#define BITS_PER_WORD 16
 #define CHUNK_SIZE 4096
 
 #define GPIO_CHIP_NAME "gpiochip4"
