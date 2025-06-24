@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -7,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <gpiod.h>
+#include <time.h>
 
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 20000000
@@ -16,6 +18,7 @@
 #define GPIO_CHIP_NAME "gpiochip4"
 #define READY_GPIO 5
 #define ACK_GPIO   6
+#define ACQ_GPIO  13
 
 #define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
@@ -23,6 +26,7 @@
 struct gpiod_chip *chip;
 struct gpiod_line *ready_line;
 struct gpiod_line *ack_line;
+struct gpiod_line *acq_line;
 
 int init_gpio() {
     chip = gpiod_chip_open_by_name(GPIO_CHIP_NAME);
@@ -30,18 +34,16 @@ int init_gpio() {
 
     ready_line = gpiod_chip_get_line(chip, READY_GPIO);
     ack_line   = gpiod_chip_get_line(chip, ACK_GPIO);
+    acq_line   = gpiod_chip_get_line(chip, ACQ_GPIO);
 
-    if (!ready_line || !ack_line) {
+    if (!ready_line || !ack_line || !acq_line) {
         gpiod_chip_close(chip);
         return -1;
     }
 
-    if (gpiod_line_request_input(ready_line, "ready_in") < 0) {
-        gpiod_chip_close(chip);
-        return -1;
-    }
-
-    if (gpiod_line_request_output(ack_line, "ack_out", 0) < 0) {
+    if (gpiod_line_request_input(ready_line, "ready_in") < 0 ||
+        gpiod_line_request_output(ack_line, "ack_out", 0) < 0 ||
+        gpiod_line_request_output(acq_line, "acq_out", 0) < 0) {
         gpiod_chip_close(chip);
         return -1;
     }
@@ -50,6 +52,7 @@ int init_gpio() {
 }
 
 void cleanup_gpio() {
+    if (acq_line) gpiod_line_release(acq_line);
     if (ack_line) gpiod_line_release(ack_line);
     if (ready_line) gpiod_line_release(ready_line);
     if (chip) gpiod_chip_close(chip);
@@ -68,16 +71,25 @@ void send_ack_pulse() {
 }
 
 int main(int argc, char *argv[]) {
-    int manual_mode = 0;
-
-    if (argc > 1 && strcmp(argv[1], "-m") == 0) {
-        manual_mode = 1;
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <duration_seconds>\n", argv[0]);
+        return 1;
     }
 
-    if (init_gpio() != 0) return 1;
+    int duration = atoi(argv[1]);
+    if (duration <= 0) {
+        fprintf(stderr, "Invalid duration: %s\n", argv[1]);
+        return 1;
+    }
+
+    if (init_gpio() != 0) {
+        fprintf(stderr, "GPIO initialization failed\n");
+        return 1;
+    }
 
     int fd = open(SPI_DEV, O_RDWR);
     if (fd < 0) {
+        perror("open(SPI_DEV)");
         cleanup_gpio();
         return 1;
     }
@@ -89,6 +101,7 @@ int main(int argc, char *argv[]) {
     if (ioctl(fd, SPI_IOC_WR_MODE, &mode) == -1 ||
         ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &bits) == -1 ||
         ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) == -1) {
+        perror("SPI ioctl");
         close(fd);
         cleanup_gpio();
         return 1;
@@ -97,18 +110,20 @@ int main(int argc, char *argv[]) {
     uint8_t tx_buf[BUFFER_SIZE] = {0};
     uint8_t rx_buf[BUFFER_SIZE];
 
-    while (1) {
-        if (manual_mode) getchar();
+    // Start acquisition
+    gpiod_line_set_value(acq_line, 1);
+
+    time_t start_time = time(NULL);
+
+    while ((time(NULL) - start_time) < duration) {
         wait_for_ready();
 
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
             int chunk_len = (BUFFER_SIZE - offset > CHUNK_SIZE) ? CHUNK_SIZE : (BUFFER_SIZE - offset);
-
             struct spi_ioc_transfer tr = {
                 .tx_buf = (unsigned long)(tx_buf + offset),
                 .rx_buf = (unsigned long)(rx_buf + offset),
                 .len = chunk_len,
-                .delay_usecs = 0,
                 .speed_hz = speed,
                 .bits_per_word = bits,
             };
@@ -121,6 +136,8 @@ int main(int argc, char *argv[]) {
 
         send_ack_pulse();
     }
+
+    gpiod_line_set_value(acq_line, 0);
 
     close(fd);
     cleanup_gpio();
