@@ -18,7 +18,7 @@
 #define GPIO_CHIP_NAME "gpiochip4"
 #define READY_GPIO 5
 #define ACK_GPIO   6
-#define ACQ_GPIO  13
+#define ACQ_GPIO   13
 
 #define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
@@ -60,25 +60,25 @@ void cleanup_gpio() {
 
 void wait_for_ready() {
     while (gpiod_line_get_value(ready_line) == 0) {
-        usleep(10);
+        usleep(1);
     }
 }
 
 void send_ack_pulse() {
     gpiod_line_set_value(ack_line, 1);
-    usleep(10);
+    usleep(5);  // short pulse
     gpiod_line_set_value(ack_line, 0);
 }
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <duration_seconds>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <duration_ms>\n", argv[0]);
         return 1;
     }
 
-    int duration = atoi(argv[1]);
-    if (duration <= 0) {
-        fprintf(stderr, "Invalid duration: %s\n", argv[1]);
+    double duration_sec = atof(argv[1]) / 1000.0;
+    if (duration_sec <= 0) {
+        fprintf(stderr, "Invalid duration (ms): %s\n", argv[1]);
         return 1;
     }
 
@@ -110,32 +110,34 @@ int main(int argc, char *argv[]) {
     uint8_t tx_buf[BUFFER_SIZE] = {0};
     uint8_t rx_buf[BUFFER_SIZE];
 
-    // Start acquisition
+    struct spi_ioc_transfer tr = {
+        .len = CHUNK_SIZE,
+        .delay_usecs = 0,
+        .speed_hz = speed,
+        .bits_per_word = bits,
+    };
+
+    wait_for_ready();
+
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     gpiod_line_set_value(acq_line, 1);
 
-    time_t start_time = time(NULL);
-
-    while ((time(NULL) - start_time) < duration) {
-        wait_for_ready();
-
+    do {
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
-            int chunk_len = (BUFFER_SIZE - offset > CHUNK_SIZE) ? CHUNK_SIZE : (BUFFER_SIZE - offset);
-            struct spi_ioc_transfer tr = {
-                .tx_buf = (unsigned long)(tx_buf + offset),
-                .rx_buf = (unsigned long)(rx_buf + offset),
-                .len = chunk_len,
-                .speed_hz = speed,
-                .bits_per_word = bits,
-            };
+            tr.tx_buf = (unsigned long)(tx_buf + offset);
+            tr.rx_buf = (unsigned long)(rx_buf + offset);
 
-            if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
+            if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 0) {
                 perror("SPI transfer failed");
                 break;
             }
         }
 
         send_ack_pulse();
-    }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+
+    } while ((now.tv_sec - start.tv_sec) + (now.tv_nsec - start.tv_nsec) / 1e9 < duration_sec);
 
     gpiod_line_set_value(acq_line, 0);
 
