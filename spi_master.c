@@ -137,13 +137,16 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
+            int sample_count = CHUNK_SIZE / 2;
+            uint64_t sum = 0;
+
             for (int i = 0; i + 1 < CHUNK_SIZE; i += 2) {
                 uint16_t raw = ((uint16_t)rx_buf[i] << 8) | rx_buf[i + 1];
-                double voltage = (raw / 65535.0) * 4.096;
-
-                printf("Voltage: %.4f V\n", voltage);
-                break;
+                sum += raw;
             }
+
+            double mean_voltage = (sum / (double)sample_count) * (4.096 / 65535.0);
+            printf("Mean Voltage: %.4f V\n", mean_voltage);
         }
 
 
