@@ -13,7 +13,7 @@
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 20000000
 #define BITS_PER_WORD 16
-#define CHUNK_SIZE 2
+#define CHUNK_SIZE 4096
 
 #define GPIO_CHIP_NAME "gpiochip4"
 #define READY_GPIO 5
@@ -110,27 +110,24 @@ int main(int argc, char *argv[]) {
     uint8_t tx_buf[BUFFER_SIZE] = {0};
     uint8_t rx_buf[BUFFER_SIZE];
 
-    // Start acquisition
     gpiod_line_set_value(acq_line, 1);
 
     struct timespec start, now;
-clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
-while (1) {
-    clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-    double elapsed_ms = (now.tv_sec - start.tv_sec) * 1000.0 +
-                        (now.tv_nsec - start.tv_nsec) / 1.0e6;
+    while (1) {
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        double elapsed_ms = (now.tv_sec - start.tv_sec) * 1000.0 +
+                            (now.tv_nsec - start.tv_nsec) / 1.0e6;
 
-    if (elapsed_ms >= duration)
-        break;
-
+        if (elapsed_ms >= duration * 1000.0)
+            break;
 
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
-            int chunk_len = (BUFFER_SIZE - offset > CHUNK_SIZE) ? CHUNK_SIZE : (BUFFER_SIZE - offset);
             struct spi_ioc_transfer tr = {
                 .tx_buf = (unsigned long)(tx_buf + offset),
                 .rx_buf = (unsigned long)(rx_buf + offset),
-                .len = chunk_len,
+                .len = CHUNK_SIZE,
                 .speed_hz = speed,
                 .bits_per_word = bits,
             };
@@ -139,13 +136,18 @@ while (1) {
                 perror("SPI transfer failed");
                 break;
             }
+
+            if (offset == 0) {
+                uint16_t raw = ((uint16_t)rx_buf[0] << 8) | rx_buf[1];
+                double voltage = (raw / 65535.0) * 4.096;
+                printf("Voltage: %.4f V\n", voltage);
+            }
         }
 
         send_ack_pulse();
     }
 
     gpiod_line_set_value(acq_line, 0);
-
     close(fd);
     cleanup_gpio();
     return 0;
