@@ -8,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <gpiod.h>
+#include <signal.h>
 
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 20000000
@@ -26,6 +27,12 @@ struct gpiod_chip *chip;
 struct gpiod_line *ready_line;
 struct gpiod_line *ack_line;
 struct gpiod_line *acq_line;
+
+volatile sig_atomic_t stop_requested = 0;
+
+void handle_signal(int signum) {
+    stop_requested = 1;
+}
 
 int init_gpio() {
     chip = gpiod_chip_open_by_name(GPIO_CHIP_NAME);
@@ -58,7 +65,7 @@ void cleanup_gpio() {
 }
 
 void wait_for_ready() {
-    while (gpiod_line_get_value(ready_line) == 0) {
+    while (!stop_requested && gpiod_line_get_value(ready_line) == 0) {
         usleep(10);
     }
 }
@@ -70,6 +77,9 @@ void send_ack_pulse() {
 }
 
 int main(int argc, char *argv[]) {
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
+
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <num_buffers>\n", argv[0]);
         return 1;
@@ -111,8 +121,9 @@ int main(int argc, char *argv[]) {
 
     gpiod_line_set_value(acq_line, 1);  // Begin acquisition
 
-    for (int i = 0; i < num_buffers; ++i) {
+    for (int i = 0; i < num_buffers && !stop_requested; ++i) {
         wait_for_ready();
+        if (stop_requested) break;
 
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
             struct spi_ioc_transfer tr = {
@@ -136,5 +147,11 @@ cleanup:
     gpiod_line_set_value(acq_line, 0);  // End acquisition
     close(fd);
     cleanup_gpio();
+
+    if (stop_requested) {
+        fprintf(stderr, "\nInterrupted – cleanup done.\n");
+        return 130;
+    }
+
     return 0;
 }
