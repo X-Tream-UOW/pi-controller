@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
     }
 
     int fd = open(SPI_DEV, O_RDWR);
+
     if (fd < 0) {
         perror("open(SPI_DEV)");
         cleanup_gpio();
@@ -115,6 +116,11 @@ int main(int argc, char *argv[]) {
         cleanup_gpio();
         return 1;
     }
+
+    uint8_t lsb = 0;
+    ioctl(fd, SPI_IOC_WR_LSB_FIRST, &lsb);
+    ioctl(fd, SPI_IOC_RD_LSB_FIRST, &lsb);
+    printf("LSB_FIRST = %d\n", lsb);
 
     uint8_t tx_buf[BUFFER_SIZE] = {0};
     uint8_t rx_buf[BUFFER_SIZE];
