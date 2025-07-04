@@ -8,7 +8,6 @@
 #include <string.h>
 #include <errno.h>
 #include <gpiod.h>
-#include <time.h>
 
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 20000000
@@ -18,7 +17,7 @@
 #define GPIO_CHIP_NAME "gpiochip4"
 #define READY_GPIO 5
 #define ACK_GPIO   6
-#define ACQ_GPIO  13
+#define ACQ_GPIO   13
 
 #define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
@@ -72,13 +71,13 @@ void send_ack_pulse() {
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <duration_seconds>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <num_buffers>\n", argv[0]);
         return 1;
     }
 
-    int duration = atoi(argv[1]);
-    if (duration <= 0) {
-        fprintf(stderr, "Invalid duration: %s\n", argv[1]);
+    int num_buffers = atoi(argv[1]);
+    if (num_buffers <= 0) {
+        fprintf(stderr, "Invalid number of buffers: %s\n", argv[1]);
         return 1;
     }
 
@@ -110,18 +109,10 @@ int main(int argc, char *argv[]) {
     uint8_t tx_buf[BUFFER_SIZE] = {0};
     uint8_t rx_buf[BUFFER_SIZE];
 
-    gpiod_line_set_value(acq_line, 1);
+    gpiod_line_set_value(acq_line, 1);  // Begin acquisition
 
-    struct timespec start, now;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-
-    while (1) {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-        double elapsed_ms = (now.tv_sec - start.tv_sec) * 1000.0 +
-                            (now.tv_nsec - start.tv_nsec) / 1.0e6;
-
-        if (elapsed_ms >= duration * 1000.0)
-            break;
+    for (int i = 0; i < num_buffers; ++i) {
+        wait_for_ready();
 
         for (int offset = 0; offset < BUFFER_SIZE; offset += CHUNK_SIZE) {
             struct spi_ioc_transfer tr = {
@@ -134,16 +125,15 @@ int main(int argc, char *argv[]) {
 
             if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
                 perror("SPI transfer failed");
-                break;
+                goto cleanup;
             }
-
         }
-
 
         send_ack_pulse();
     }
 
-    gpiod_line_set_value(acq_line, 0);
+cleanup:
+    gpiod_line_set_value(acq_line, 0);  // End acquisition
     close(fd);
     cleanup_gpio();
     return 0;
