@@ -121,6 +121,9 @@ int main(int argc, char *argv[]) {
 
     gpiod_line_set_value(acq_line, 1);  // Begin acquisition
 
+    uint64_t total = 0;
+    uint64_t total_samples = 0;
+
     for (int i = 0; i < num_buffers && !stop_requested; ++i) {
         wait_for_ready();
         if (stop_requested) break;
@@ -140,7 +143,19 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        // Compute mean of current buffer
+        for (int j = 0; j < BUFFER_SIZE; j += 2) {
+            uint16_t sample = ((uint16_t)rx_buf[j] << 8) | rx_buf[j + 1];  // MSB-first
+            total += sample;
+        }
+
+        total_samples += BUFFER_SAMPLES;
         send_ack_pulse();
+    }
+
+    if (!stop_requested && total_samples > 0) {
+        double mean = (double)total / total_samples;
+        printf("Mean sample value across %llu samples: %.2f\n", total_samples, mean);
     }
 
 cleanup:
