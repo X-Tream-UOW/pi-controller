@@ -1,9 +1,11 @@
-#include "spi_handler.h"
-#include "gpio_handler.h"
-#include "acquisition.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
+
+#include "spi_handler.h"
+#include "gpio_handler.h"
+#include "acquisition.h"
 
 volatile sig_atomic_t stop_requested = 0;
 

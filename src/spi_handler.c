@@ -1,9 +1,10 @@
-#include "spi_handler.h"
+#include <stdint.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
+#include "spi_handler.h"
 
 #define SPI_DEV "/dev/spidev0.0"
 #define SPI_SPEED 20000000
