@@ -1,9 +1,13 @@
-#include "acquisition.h"
-#include "gpio_handler.h"
 #include <linux/spi/spidev.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+
+#include "acquisition.h"
+#include "gpio_handler.h"
 
 #define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
