@@ -7,6 +7,8 @@
 #include "gpio_handler.h"
 #include "acquisition.h"
 
+#define OUTPUT_PATH "output_data.bin"
+
 volatile sig_atomic_t stop_requested = 0;
 
 void handle_signal(int signum) {
@@ -39,7 +41,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    double mean = acquire_buffers(fd, num_buffers, &stop_requested);
+    double mean = acquire_buffers(fd, num_buffers, &stop_requested, OUTPUT_PATH);
     if (!stop_requested)
         printf("Mean sample value: %.2f\n", mean);
 
