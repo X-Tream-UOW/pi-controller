@@ -4,6 +4,6 @@
 #include <stdint.h>
 #include <signal.h>
 
-double acquire_buffers(int fd, int num_buffers, volatile sig_atomic_t *stop_flag);
+double acquire_buffers(int fd, int num_buffers, volatile sig_atomic_t *stop_flag, const char *output_path);
 
 #endif
