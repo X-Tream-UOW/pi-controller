@@ -15,15 +15,19 @@ static int configured_num_buffers = 0;
 static volatile sig_atomic_t stop_requested = 0;
 
 void set_duration_ms(int duration_ms) {
-    configured_num_buffers = (int)round(duration_ms / BUFFER_DURATION_MS);
+    configured_num_buffers = (int)round(duration_ms / BUFFER_DURATION_MS) + 1;  // Adding 1 to pull the last buffer
     if (configured_num_buffers < 1) {
         configured_num_buffers = 1;
     }
 }
 
+void handle_signal(int signum) {
+    stop_requested = 1;
+}
+
 void start_acquisition(void) {
-    signal(SIGINT, [](int signum){ stop_requested = 1; });
-    signal(SIGTERM, [](int signum){ stop_requested = 1; });
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
 
     if (configured_num_buffers <= 0) {
         fprintf(stderr, "Acquisition duration not configured. Call set_duration_ms() first.\n");
