@@ -15,7 +15,7 @@ static int configured_num_buffers = 0;
 static volatile sig_atomic_t stop_requested = 0;
 
 void set_duration_ms(int duration_ms) {
-    configured_num_buffers = (int)round(duration_ms / BUFFER_DURATION_MS) + 1;  // Adding 1 to pull the last buffer
+    configured_num_buffers = (int)ceil(duration_ms / BUFFER_DURATION_MS);
     if (configured_num_buffers < 1) {
         configured_num_buffers = 1;
     }

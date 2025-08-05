@@ -1,7 +1,7 @@
 # Compiler and flags
 CC := gcc
 CFLAGS := -Wall -O2 -Iinclude
-LDFLAGS := -lgpiod
+LDFLAGS := -lgpiod -lm
 
 # Auto-detect sources/objects
 SRC_DIR := src
