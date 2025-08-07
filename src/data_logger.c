@@ -5,19 +5,17 @@
 #include <string.h>
 
 #define DOWNSAMPLE_FACTOR 200000
-#define MAX_FILENAME_LEN 256
 
 int init_logger(DataLogger *logger, const char *base_name) {
     char bin_filename[MAX_FILENAME_LEN];
-    char ds_filename[MAX_FILENAME_LEN];
 
     snprintf(bin_filename, MAX_FILENAME_LEN, "%s.bin", base_name);
-    snprintf(ds_filename, MAX_FILENAME_LEN, "%s_ds.bin", base_name);
+    snprintf(logger->ds_path, MAX_FILENAME_LEN, "%s_ds.bin", base_name);
 
     logger->fp = fopen(bin_filename, "wb");
     if (!logger->fp) return -1;
 
-    logger->ds_fp = fopen(ds_filename, "wb");
+    logger->ds_fp = fopen(logger->ds_path, "wb");
     if (!logger->ds_fp) {
         fclose(logger->fp);
         return -1;
@@ -33,6 +31,7 @@ int init_logger(DataLogger *logger, const char *base_name) {
 
     return 0;
 }
+
 
 void log_samples(DataLogger *logger, const uint8_t *rx_buf, size_t len) {
     if (!logger || !logger->buffer || !rx_buf) return;
@@ -51,6 +50,8 @@ void log_samples(DataLogger *logger, const uint8_t *rx_buf, size_t len) {
     for (size_t i = 0; i < num_samples; i += DOWNSAMPLE_FACTOR) {
         fwrite(&records[i], sizeof(SampleRecord), 1, logger->ds_fp);
     }
+    fflush(logger->ds_fp);
+    fflush(logger->fp);
 }
 
 void close_logger(DataLogger *logger) {
