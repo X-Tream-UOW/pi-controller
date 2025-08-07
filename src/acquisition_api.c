@@ -120,3 +120,7 @@ void start_acquisition(void) {
     printf("Acquisition complete, returning.\n");
     return;
 }
+
+void stop_acquisition(void) {
+    stop_requested = 1;
+}
