@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int running_as_executable = 1;
+
 int main(int argc, char *argv[]) {
 
     if (argc < 2) {

@@ -14,6 +14,8 @@
 #define BUFFER_DURATION_MS 65.536 // 65536 samples at 1 MSPS
 #define MAX_FILENAME_LEN 128
 
+__attribute__((weak)) extern int running_as_executable;
+
 static int configured_num_buffers = 0;
 static volatile sig_atomic_t stop_requested = 0;
 static char custom_filename[MAX_FILENAME_LEN] = {0};
@@ -73,8 +75,11 @@ void handle_signal(int signum) {
 }
 
 void start_acquisition(void) {
-//    signal(SIGINT, handle_signal);
-//    signal(SIGTERM, handle_signal);
+
+  	if (&running_as_executable && running_as_executable) {
+    	signal(SIGINT, handle_signal);
+    	signal(SIGTERM, handle_signal);
+    }
 
     if (configured_num_buffers <= 0) {
         fprintf(stderr, "Acquisition duration not configured. Call set_duration_ms() first.\n");
