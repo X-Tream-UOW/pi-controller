@@ -1,13 +1,13 @@
 #ifndef DATA_LOGGER_H
 #define DATA_LOGGER_H
 
-#include <stdint.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 typedef struct {
     FILE *fp;
-    uint64_t sample_counter;
+    uint32_t sample_counter;
 } DataLogger;
 
 int init_logger(DataLogger *logger, const char *filename);
