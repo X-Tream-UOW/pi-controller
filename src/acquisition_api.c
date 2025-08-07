@@ -121,6 +121,6 @@ void start_acquisition(void) {
     return;
 }
 
-void stop_acquisition(void) {
+void stop_acquisition(void) { // TODO : investigate why we can't start again after this (RD line toggles)
     stop_requested = 1;
 }

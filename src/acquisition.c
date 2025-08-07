@@ -10,7 +10,6 @@
 #include "gpio_handler.h"
 #include "data_logger.h"
 
-#define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
 #define CHUNK_SIZE 4096
 

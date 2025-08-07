@@ -17,51 +17,44 @@ int downsample_file(const char* filename, size_t max_points, DownsampleResult* o
     size_t total_records = filesize / sizeof(SampleRecord);
     fseek(fp, 0, SEEK_SET);
 
-    if (total_records == 0) {
+    if (total_records == 0 || max_points == 0) {
         fclose(fp);
         return -1;
     }
 
-    size_t step = total_records / max_points;
-    if (step < 1) step = 1;
-
-    size_t max_alloc = max_points * 2;
-    out->data = malloc(max_alloc * sizeof(SampleRecord));
-    if (!out->data) {
+    // Read entire file into memory
+    SampleRecord* all_records = malloc(total_records * sizeof(SampleRecord));
+    if (!all_records) {
         fclose(fp);
         return -1;
     }
 
-    size_t out_idx = 0;
-    size_t processed_windows = 0;
-    size_t max_windows = max_points;
-
-    for (size_t i = 0; i < total_records && processed_windows < max_windows; i += step) {
-        SampleRecord r, min_rec = {0, 0xFFFF}, max_rec = {0, 0};
-        size_t window_end = i + step;
-        if (window_end > total_records) window_end = total_records;
-
-        for (size_t j = i; j < window_end; ++j) {
-            fseek(fp, j * sizeof(SampleRecord), SEEK_SET);
-            if (fread(&r, sizeof(SampleRecord), 1, fp) != 1)
-                break;
-
-            if (r.sample < min_rec.sample) min_rec = r;
-            if (r.sample > max_rec.sample) max_rec = r;
-        }
-
-        if (out_idx + 2 <= max_alloc) {
-            out->data[out_idx++] = min_rec;
-            out->data[out_idx++] = max_rec;
-        } else {
-            break;
-        }
-
-        processed_windows++;
+    if (fread(all_records, sizeof(SampleRecord), total_records, fp) != total_records) {
+        free(all_records);
+        fclose(fp);
+        return -1;
     }
 
-    out->count = out_idx;
     fclose(fp);
+
+    // Allocate output buffer
+    size_t count = (total_records < max_points) ? total_records : max_points;
+    out->data = malloc(count * sizeof(SampleRecord));
+    if (!out->data) {
+        free(all_records);
+        return -1;
+    }
+
+    // Select evenly spaced samples
+    double step = (double)total_records / count;
+    for (size_t i = 0; i < count; ++i) {
+        size_t idx = (size_t)(i * step);
+        if (idx >= total_records) idx = total_records - 1;
+        out->data[i] = all_records[idx];
+    }
+
+    out->count = count;
+    free(all_records);
     return 0;
 }
 

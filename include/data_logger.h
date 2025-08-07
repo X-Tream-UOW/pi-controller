@@ -8,6 +8,7 @@
 typedef struct {
     FILE *fp;
     uint32_t sample_counter;
+    struct SampleRecord *buffer;
 } DataLogger;
 
 int init_logger(DataLogger *logger, const char *filename);
