@@ -35,28 +35,21 @@ void set_custom_filename(const char* user_input) {
         return;
     }
 
-    // Copy and ensure it ends with .bin
+    // Copy
     strncpy(custom_filename, user_input, MAX_FILENAME_LEN - 1);
-    custom_filename[MAX_FILENAME_LEN - 1] = '\0';
-
-    // Append ".bin" if not present
-    const char *dot = strrchr(custom_filename, '.');
-    if (!dot || strcmp(dot, ".bin") != 0) {
-        strncat(custom_filename, ".bin", MAX_FILENAME_LEN - strlen(custom_filename) - 1);
-    }
 }
 
 static void generate_default_filename(char *buf, size_t buflen) {
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
     if (!t) {
-        snprintf(buf, buflen, "fallback_output.bin");
+        snprintf(buf, buflen, "fallback_output");
         return;
     }
 
     int duration_ms = (int)(configured_num_buffers * BUFFER_DURATION_MS);
     snprintf(buf, buflen,
-             "%02d_%02d_%04d_%02d_%02d_%02d_ACQ%dms.bin",
+             "%02d_%02d_%04d_%02d_%02d_%02d_ACQ%dms",
              t->tm_mday, t->tm_mon + 1, t->tm_year + 1900,
              t->tm_hour, t->tm_min, t->tm_sec, duration_ms);
 }

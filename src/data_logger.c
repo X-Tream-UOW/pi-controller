@@ -1,23 +1,33 @@
-#include <stdlib.h>
+#include "data_logger.h"
+#include "acquisition.h"  // For BUFFER_SAMPLES
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "data_logger.h"
-#include "acquisition.h"
+#define DOWNSAMPLE_FACTOR 200000
+#define MAX_FILENAME_LEN 256
 
-typedef struct SampleRecord {
-    uint32_t index;
-    uint16_t sample;
-} __attribute__((packed)) SampleRecord;
+int init_logger(DataLogger *logger, const char *base_name) {
+    char bin_filename[MAX_FILENAME_LEN];
+    char ds_filename[MAX_FILENAME_LEN];
 
-int init_logger(DataLogger *logger, const char *filename) {
-    logger->fp = fopen(filename, "wb");
+    snprintf(bin_filename, MAX_FILENAME_LEN, "%s.bin", base_name);
+    snprintf(ds_filename, MAX_FILENAME_LEN, "%s_ds.bin", base_name);
+
+    logger->fp = fopen(bin_filename, "wb");
     if (!logger->fp) return -1;
 
+    logger->ds_fp = fopen(ds_filename, "wb");
+    if (!logger->ds_fp) {
+        fclose(logger->fp);
+        return -1;
+    }
+
     logger->sample_counter = 0;
-    logger->buffer = malloc(BUFFER_SAMPLES * sizeof(SampleRecord)); // Max expected buffer
+    logger->buffer = malloc(BUFFER_SAMPLES * sizeof(SampleRecord));
     if (!logger->buffer) {
         fclose(logger->fp);
+        fclose(logger->ds_fp);
         return -1;
     }
 
@@ -37,10 +47,15 @@ void log_samples(DataLogger *logger, const uint8_t *rx_buf, size_t len) {
     }
 
     fwrite(records, sizeof(SampleRecord), num_samples, logger->fp);
+
+    for (size_t i = 0; i < num_samples; i += DOWNSAMPLE_FACTOR) {
+        fwrite(&records[i], sizeof(SampleRecord), 1, logger->ds_fp);
+    }
 }
 
 void close_logger(DataLogger *logger) {
     if (logger->fp) fclose(logger->fp);
+    if (logger->ds_fp) fclose(logger->ds_fp);
     if (logger->buffer) free(logger->buffer);
     logger->buffer = NULL;
 }
