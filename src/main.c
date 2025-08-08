@@ -1,57 +1,21 @@
+#include "acquisition_api.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <unistd.h>
 
-#include "spi_handler.h"
-#include "gpio_handler.h"
-#include "acquisition.h"
-
-#define OUTPUT_PATH "output_data.bin"
-
-volatile sig_atomic_t stop_requested = 0;
-
-void handle_signal(int signum) {
-    stop_requested = 1;
-}
+int running_as_executable = 1;
 
 int main(int argc, char *argv[]) {
-    signal(SIGINT, handle_signal);
-    signal(SIGTERM, handle_signal);
 
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <num_buffers>\n", argv[0]);
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <duration_ms>\n", argv[0]);
+        fflush(stderr);
         return 1;
     }
+    int duration_ms = atoi(argv[1]);
 
-    int num_buffers = atoi(argv[1]);
-    if (num_buffers <= 0) {
-        fprintf(stderr, "Invalid number of buffers: %s\n", argv[1]);
-        return 1;
-    }
-
-    if (init_gpio() != 0) {
-        fprintf(stderr, "GPIO initialization failed\n");
-        return 1;
-    }
-
-    int fd = init_spi();
-    if (fd < 0) {
-        cleanup_gpio();
-        return 1;
-    }
-
-    double mean = acquire_buffers(fd, num_buffers, &stop_requested, OUTPUT_PATH);
-    if (!stop_requested)
-        printf("Mean sample value: %.2f\n", mean);
-
-    close(fd);
-    cleanup_gpio();
-
-    if (stop_requested) {
-        fprintf(stderr, "\nInterrupted – cleanup done.\n");
-        return 130;
-    }
+    set_duration_ms(duration_ms);
+    set_custom_filename("test_run");
+    start_acquisition();
 
     return 0;
 }

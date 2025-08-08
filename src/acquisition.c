@@ -10,9 +10,10 @@
 #include "gpio_handler.h"
 #include "data_logger.h"
 
-#define BUFFER_SAMPLES 65536
 #define BUFFER_SIZE (BUFFER_SAMPLES * 2)
 #define CHUNK_SIZE 4096
+
+DataLogger current_logger;
 
 double acquire_buffers(int fd, int num_buffers, volatile sig_atomic_t *stop_flag, const char *output_path) {
     uint8_t tx_buf[BUFFER_SIZE] = {0};
@@ -20,8 +21,7 @@ double acquire_buffers(int fd, int num_buffers, volatile sig_atomic_t *stop_flag
     uint64_t total = 0;
     uint64_t total_samples = 0;
 
-    DataLogger logger;
-    if (init_logger(&logger, output_path) != 0) {
+    if (init_logger(&current_logger, output_path) != 0) {
         perror("Failed to open output file");
         return -1;
     }
@@ -44,7 +44,7 @@ double acquire_buffers(int fd, int num_buffers, volatile sig_atomic_t *stop_flag
             if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
                 perror("SPI transfer failed");
                 set_acq(0);
-                close_logger(&logger);
+                close_logger(&current_logger);
                 return -1;
             }
         }
@@ -56,12 +56,12 @@ double acquire_buffers(int fd, int num_buffers, volatile sig_atomic_t *stop_flag
         }
 
         total_samples += BUFFER_SAMPLES;
-        log_samples(&logger, rx_buf, BUFFER_SIZE);
+        log_samples(&current_logger, rx_buf, BUFFER_SIZE);
         send_ack_pulse();
     }
 
     set_acq(0);
-    close_logger(&logger);
+    close_logger(&current_logger);
 
     return (total_samples > 0) ? (double)total / total_samples : -1;
 }
