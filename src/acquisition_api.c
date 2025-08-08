@@ -69,6 +69,8 @@ void handle_signal(int signum) {
 
 void start_acquisition(void) {
 
+    stop_requested = 0;
+
   	if (&running_as_executable && running_as_executable) {
     	signal(SIGINT, handle_signal);
     	signal(SIGTERM, handle_signal);
@@ -114,6 +116,6 @@ void start_acquisition(void) {
     return;
 }
 
-void stop_acquisition(void) { // TODO : investigate why we can't start again after this (RD line toggles)
+void stop_acquisition(void) {
     stop_requested = 1;
 }

@@ -1,5 +1,5 @@
 #include "data_logger.h"
-#include "acquisition.h"  // For BUFFER_SAMPLES
+#include "acquisition.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
