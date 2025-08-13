@@ -37,3 +37,16 @@ lib: $(LIB_NAME)
 
 $(LIB_NAME): $(LIB_OBJ)
 	$(CC) -shared -fPIC -o $@ $^ $(LDFLAGS)
+
+
+.PHONY: bias
+bias: build/bias_main.o build/bias_control.o
+	$(CC) $(CFLAGS) -o bias $^ $(LDFLAGS)
+
+build/bias_main.o: src/bias_main.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+
+build/bias_control.o: src/bias_control.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -fPIC -c $< -o $@
