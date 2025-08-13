@@ -13,7 +13,7 @@
 #define CMD_GET_BIAS     0x06  // reply DATA: hv in deci-volts (int16)
 
 // Open GPIO and set the bit period (microseconds per bit). Returns 0 on success.
-int  bias_open(unsigned bit_us);
+int bias_open();
 
 // Close GPIO.
 void bias_close(void);

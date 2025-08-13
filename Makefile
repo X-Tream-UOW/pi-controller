@@ -1,56 +1,53 @@
 # Compiler and flags
-CC := gcc
-CFLAGS := -Wall -O2 -Iinclude
-LDFLAGS := -lgpiod -lm
+CC       := gcc
+CFLAGS   := -Wall -O2 -Iinclude -fPIC
+LDFLAGS  := -lgpiod -lm
 
-# Auto-detect sources/objects
-SRC_DIR := src
-OBJ_DIR := build
+# Directories
+SRC_DIR  := c-src
+OBJ_DIR  := build
 
-SRC := $(wildcard $(SRC_DIR)/*.c)
-OBJ := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
+# Sources and objects
+SRC      := $(wildcard $(SRC_DIR)/*.c)
+OBJ      := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
 
-TARGET := master
+# Main target
+TARGET   := master
 
-# Targets
-.PHONY: all clean
+# Library target (exclude main.c and bias_main.c)
+LIB_NAME := libacquisition.so
+LIB_SRC  := $(filter-out $(SRC_DIR)/main.c $(SRC_DIR)/bias_main.c, $(SRC))
+LIB_OBJ  := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(LIB_SRC))
 
+# Bias target
+BIAS_NAME := bias
+BIAS_SRC  := $(SRC_DIR)/bias_main.c $(SRC_DIR)/bias_api.c $(SRC_DIR)/bias_control.c
+BIAS_OBJ  := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(BIAS_SRC))
+
+.PHONY: all clean lib bias
+
+# Default build
 all: $(TARGET)
 
+# Main program
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+# Pattern rule for compiling .c to .o
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -rf $(OBJ_DIR) $(TARGET)
-
-# New target
-LIB_NAME := libacquisition.so
-LIB_SRC := $(filter-out $(SRC_DIR)/main.c $(SRC_DIR)/bias_main.c, $(SRC))
-LIB_OBJ := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(LIB_SRC))
-
-.PHONY: lib
+# Shared library
 lib: $(LIB_NAME)
-
 $(LIB_NAME): $(LIB_OBJ)
-	$(CC) -shared -fPIC -o $@ $^ $(LDFLAGS)
+	$(CC) -shared -o $@ $^ $(LDFLAGS)
 
+# Bias program
+bias: $(BIAS_NAME)
+$(BIAS_NAME): $(BIAS_OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-.PHONY: bias
-bias: build/bias_main.o build/bias_api.o build/bias_control.o
-	$(CC) $(CFLAGS) -o bias $^ $(LDFLAGS)
-
-build/bias_main.o: src/bias_main.c
-	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
-
-build/bias_api.o: src/bias_api.c
-	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
-
-build/bias_control.o: src/bias_control.c
-	@mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+# Clean
+clean:
+	rm -rf $(OBJ_DIR) $(TARGET) $(LIB_NAME) $(BIAS_NAME)

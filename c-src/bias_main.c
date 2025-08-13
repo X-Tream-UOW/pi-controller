@@ -3,7 +3,7 @@
 #include <unistd.h>  // for usleep
 
 int main(void) {
-    if (bias_api_start_io(1000) != 0) {
+    if (bias_api_start_io() != 0) {
         fprintf(stderr, "Failed to start IO\n");
         return 1;
     }

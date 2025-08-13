@@ -4,12 +4,10 @@
 #include <stdbool.h>
 
 static int g_started = 0;
-static unsigned g_bit_us = 1000;
 
 
-int bias_api_start_io(unsigned bit_us) {
-    g_bit_us = bit_us ? bit_us : 1000;
-    int r = bias_open(g_bit_us);
+int bias_api_start_io() {
+    int r = bias_open();
     if (r == 0) g_started = 1;
     return r; /* propagate low-level error codes (-1..-4) */
 }

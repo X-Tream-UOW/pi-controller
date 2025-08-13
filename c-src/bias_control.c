@@ -27,8 +27,7 @@ static inline void busy_wait_until_us(uint64_t t_us) {
     }
 }
 
-int bias_open(unsigned bit_us) {
-    g_bit_us = bit_us ? bit_us : 1000;
+int bias_open(){
 
     g_chip = gpiod_chip_open_by_name("gpiochip0");
     if (!g_chip) return -1;

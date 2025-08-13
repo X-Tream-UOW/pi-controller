@@ -11,7 +11,7 @@ enum {
 };
 
 /* Lifecycle */
-int  bias_api_start_io(unsigned bit_us);   /* calls bias_open(bit_us) */
+int  bias_api_start_io(void);
 void bias_api_stop_io(void);               /* calls bias_close() */
 
 /* 6 high-level endpoints */
