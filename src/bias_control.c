@@ -130,34 +130,10 @@ int bias_recv_frame(uint8_t *cmd3, int16_t *data16, unsigned timeout_us) {
     return 0;
 }
 
-// Convenience: send a request and wait for its reply (blocking)
 int bias_send_expect_reply(uint8_t tx_cmd3, int16_t tx_data16,
                            uint8_t *rx_cmd3, int16_t *rx_data16,
                            unsigned timeout_us)
 {
     bias_send_frame(tx_cmd3, tx_data16);
     return bias_recv_frame(rx_cmd3, rx_data16, timeout_us);
-}
-
-
-int bias_get_status(bool *enabled, bool *is_negative, unsigned timeout_us) {
-    uint8_t rc;
-    int16_t rd; // wire format: bit0=en, bit1=pol (1=negative)
-    int r = bias_send_expect_reply(CMD_GET_STATUS, 0, &rc, &rd, timeout_us);
-    if (r < 0) return r;          // timeout / RX error
-    if (rc != CMD_GET_STATUS) return -2; // unexpected command echo
-
-    if (enabled)     *enabled     = (rd & 0x01) != 0;
-    if (is_negative) *is_negative = (rd & 0x02) != 0;
-    return 0;
-}
-
-int bias_get_bias(int32_t *hv_mV, unsigned timeout_us) {
-    uint8_t rc;
-    int16_t rd; // received in decivolts
-    int r = bias_send_expect_reply(CMD_GET_BIAS, 0, &rc, &rd, timeout_us);
-    if (r < 0) return r;
-    if (rc != CMD_GET_BIAS) return -2;
-    if (hv_mV) *hv_mV = rd * 100; // convert decivolts → millivolts
-    return 0;
 }

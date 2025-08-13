@@ -1,27 +1,55 @@
-#include "bias_control.h"
+#include "bias_api.h"
 #include <stdio.h>
-#include <unistd.h>
+#include <unistd.h>  // for usleep
 
 int main(void) {
-    const unsigned BIT_US = 1000;
-
-    if (bias_open(BIT_US) != 0) {
-        fprintf(stderr, "bias_open() failed\n");
+    if (bias_api_start_io(1000) != 0) {
+        fprintf(stderr, "Failed to start IO\n");
         return 1;
     }
-    bool en=false, neg=false;
-    if (bias_get_status(&en, &neg, 100000) == 0) {
-        printf("HV: %s, Polarity: %s\n", en ? "ENABLED" : "OFF",
-                                         neg ? "NEGATIVE" : "POSITIVE");
-    }
 
-    // bias_send_frame(CMD_SET_POLARITY, 1);
-    // sleep(1);
-    // bias_send_frame(CMD_ON, 0);
-    // sleep(3);
-    // bias_send_frame(CMD_GET_BIAS, 0);
-    // sleep(1);
-    // bias_send_frame(CMD_OFF, 0);
-    // bias_close();
+    // Turn off HV
+    bias_api_hv_off();
+    usleep(500000);
+
+    // Set 500 mV
+    bias_api_set_voltage_mV(50);
+    usleep(500000);
+
+    // Set polarity negative
+    bias_api_set_polarity(true);
+    usleep(500000);
+
+    // Print status and voltage
+    bool en = false, neg = false;
+    int32_t mv = 0;
+    if (bias_api_get_status(&en, &neg, 50000) == 0) {
+        printf("Status: enabled=%d, polarity=%s\n", en, neg ? "NEG" : "POS");
+    }
+    usleep(500000);
+    if (bias_api_get_bias_mV(&mv, 50000) == 0) {
+        printf("Voltage: %.3f V\n", mv / 1000.0);
+    }
+    usleep(2000000);
+
+    // Turn on
+    bias_api_hv_on();
+    usleep(500000);
+
+    // Print again
+    if (bias_api_get_status(&en, &neg, 50000) == 0) {
+        printf("Status: enabled=%d, polarity=%s\n", en, neg ? "NEG" : "POS");
+    }
+    usleep(500000);
+    if (bias_api_get_bias_mV(&mv, 50000) == 0) {
+        printf("Voltage: %.3f V\n", mv / 1000.0);
+    }
+    usleep(500000);
+
+    // Turn off
+    bias_api_hv_off();
+    usleep(500000);
+
+    bias_api_stop_io();
     return 0;
 }

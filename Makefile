@@ -29,7 +29,7 @@ clean:
 
 # New target
 LIB_NAME := libacquisition.so
-LIB_SRC := $(filter-out $(SRC_DIR)/main.c, $(SRC))  # excludes main.c
+LIB_SRC := $(filter-out $(SRC_DIR)/main.c $(SRC_DIR)/bias_main.c, $(SRC))
 LIB_OBJ := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(LIB_SRC))
 
 .PHONY: lib
@@ -40,10 +40,14 @@ $(LIB_NAME): $(LIB_OBJ)
 
 
 .PHONY: bias
-bias: build/bias_main.o build/bias_control.o
+bias: build/bias_main.o build/bias_api.o build/bias_control.o
 	$(CC) $(CFLAGS) -o bias $^ $(LDFLAGS)
 
 build/bias_main.o: src/bias_main.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) -fPIC -c $< -o $@
+
+build/bias_api.o: src/bias_api.c
 	@mkdir -p $(OBJ_DIR)
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 

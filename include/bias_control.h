@@ -22,6 +22,6 @@ void bias_close(void);
 // Blocking, absolute-timed.
 void bias_send_frame(uint8_t cmd3, int16_t data16);
 
-int bias_get_bias(int32_t *hv_dV, unsigned timeout_us);
-
-int bias_get_status(bool *enabled, bool *is_negative, unsigned timeout_us);
+int bias_send_expect_reply(uint8_t tx_cmd3, int16_t tx_data16,
+                           uint8_t *rx_cmd3, int16_t *rx_data16,
+                           unsigned timeout_us);
