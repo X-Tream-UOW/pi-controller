@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-
+#include <stdbool.h>
 
 #define PI_TX 15
 #define PI_RX 14
@@ -21,3 +21,7 @@ void bias_close(void);
 // Send one frame: start (1*bit), 3-bit CMD (LSB-first), 16-bit DATA (LSB-first), then idle-high.
 // Blocking, absolute-timed.
 void bias_send_frame(uint8_t cmd3, int16_t data16);
+
+int bias_get_bias(int32_t *hv_dV, unsigned timeout_us);
+
+int bias_get_status(bool *enabled, bool *is_negative, unsigned timeout_us);
