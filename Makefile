@@ -7,47 +7,52 @@ LDFLAGS  := -lgpiod -lm
 SRC_DIR  := c-src
 OBJ_DIR  := build
 
-# Sources and objects
-SRC      := $(wildcard $(SRC_DIR)/*.c)
-OBJ      := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
+# Discover sources
+SRC_ALL      := $(wildcard $(SRC_DIR)/*.c)
+MAIN_C       := $(SRC_DIR)/main.c
+BIAS_MAIN_C  := $(SRC_DIR)/bias_main.c
 
-# Main target
-TARGET   := master
+# Common sources (everything except the two mains)
+COMMON_SRC   := $(filter-out $(MAIN_C) $(BIAS_MAIN_C), $(SRC_ALL))
+COMMON_OBJ   := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(COMMON_SRC))
 
-# Library target (exclude main.c and bias_main.c)
-LIB_NAME := libacquisition.so
-LIB_SRC  := $(filter-out $(SRC_DIR)/main.c $(SRC_DIR)/bias_main.c, $(SRC))
-LIB_OBJ  := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(LIB_SRC))
+# acq target (main.c + common, but NOT bias_main.c)
+ACQ_NAME     := acq
+ACQ_SRC      := $(COMMON_SRC) $(MAIN_C)
+ACQ_OBJ      := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(ACQ_SRC))
 
-# Bias target
-BIAS_NAME := bias
-BIAS_SRC  := $(SRC_DIR)/bias_main.c $(SRC_DIR)/bias_api.c $(SRC_DIR)/bias_control.c
-BIAS_OBJ  := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(BIAS_SRC))
+# bias target (bias_main.c + common, but NOT main.c)
+BIAS_NAME    := bias
+BIAS_SRC     := $(COMMON_SRC) $(BIAS_MAIN_C)
+BIAS_OBJ     := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(BIAS_SRC))
 
-.PHONY: all clean lib bias
+# Shared library (only common, ignore both mains)
+LIB_NAME     := xtreamlib.so
+LIB_OBJ      := $(COMMON_OBJ)
 
-# Default build
-all: $(TARGET)
+.PHONY: all acq bias lib cllean
 
-# Main program
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+# Build everything by default
+all: acq bias lib
 
 # Pattern rule for compiling .c to .o
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Shared library
+# acq executable
+acq: $(ACQ_OBJ)
+	$(CC) $(CFLAGS) -o $(ACQ_NAME) $(ACQ_OBJ) $(LDFLAGS)
+
+# bias executable
+bias: $(BIAS_OBJ)
+	$(CC) $(CFLAGS) -o $(BIAS_NAME) $(BIAS_OBJ) $(LDFLAGS)
+
+# Shared library (xtream.so)
 lib: $(LIB_NAME)
 $(LIB_NAME): $(LIB_OBJ)
-	$(CC) -shared -o $@ $^ $(LDFLAGS)
-
-# Bias program
-bias: $(BIAS_NAME)
-$(BIAS_NAME): $(BIAS_OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) -shared -o $(LIB_NAME) $(LIB_OBJ) $(LDFLAGS)
 
 # Clean
 clean:
-	rm -rf $(OBJ_DIR) $(TARGET) $(LIB_NAME) $(BIAS_NAME)
+	rm -rf $(OBJ_DIR) $(ACQ_NAME) $(BIAS_NAME) $(LIB_NAME)
