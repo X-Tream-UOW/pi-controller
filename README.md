@@ -4,7 +4,9 @@ This repository contains the C firmware for ADC acquisition on the Raspberry Pi.
 
 ---
 
-## Build the CLI executable
+## Build the CLI executables
+
+### Acquisition
 
 ```bash
 make
@@ -17,7 +19,23 @@ Run it with:
 ```bash
 ./master <duration_ms>
 ```
-This will perform an acquisition of the given time.
+This will perform an acquisition of the given time, and store the result into a .bin file.
+
+### Voltage bias
+
+```bash
+make bias
+```
+
+Produces: `./bias`
+
+Run it with:
+
+```bash
+./bias
+```
+
+This will execute a quick test of the high voltage module including voltage, polarity & on/off.
 
 ---
 
@@ -27,7 +45,7 @@ This will perform an acquisition of the given time.
 make lib
 ```
 
-This builds `libacquisition.so`, excluding the CLI entry point (`main.c`).
+This builds `libacquisition.so`, excluding the CLI entry points (`main.c` and `bias_main.c`).
 
 This library can be used via dynamic linking (e.g., in the Python API using `ctypes`).
 
