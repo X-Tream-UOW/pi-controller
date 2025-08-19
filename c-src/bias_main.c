@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>  // for usleep
 
+
+// This entry point is for testing the bias API directly.
 int main(void) {
     if (bias_api_start_io() != 0) {
         fprintf(stderr, "Failed to start IO\n");

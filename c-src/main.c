@@ -4,6 +4,7 @@
 
 int running_as_executable = 1;
 
+// This main is for testing the acquisition without the API, manually.
 int main(int argc, char *argv[]) {
 
     if (argc < 2) {

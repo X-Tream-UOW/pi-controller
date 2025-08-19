@@ -1,3 +1,6 @@
+/* This file implements the streaming of the downsampled file. It keeps track of the last access to the file to
+ avoid re-sending the same data. */
+
 #include "streamer.h"
 #include <stdio.h>
 #include <stdlib.h>
